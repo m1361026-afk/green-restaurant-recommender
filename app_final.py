@@ -666,6 +666,142 @@ def save_questionnaire_response(snapshot, answers, demographics, feedback_text, 
 # =========================
 # 12. UI 元件
 # =========================
+def inject_intro_page_css():
+    st.markdown("""
+    <style>
+    /* ===== 首頁整體標題與一般文字 ===== */
+    .intro-page-title {
+        color: #183a2d !important;
+        font-weight: 800 !important;
+    }
+
+    .intro-page-text {
+        color: #2f4f46 !important;
+        line-height: 1.9 !important;
+    }
+
+    .intro-section-title {
+        color: #16324f !important;
+        font-weight: 800 !important;
+        margin-top: 0.8rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+
+    /* ===== 首頁上方主視覺區 ===== */
+    .intro-hero-box {
+        background: #eef7f1 !important;
+        border: 1px solid #d8eadf !important;
+        border-radius: 24px !important;
+        padding: 1.4rem 1.6rem !important;
+        margin-bottom: 1.2rem !important;
+    }
+
+    .intro-tab-chip {
+        display: inline-block;
+        background: #dff0e5 !important;
+        color: #215c45 !important;
+        border-radius: 999px !important;
+        padding: 0.35rem 0.85rem !important;
+        font-size: 0.92rem !important;
+        font-weight: 700 !important;
+        margin-right: 0.5rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+
+    /* ===== 三個介紹卡片 ===== */
+    .intro-info-card {
+        background: #ffffff !important;
+        border: 1px solid #dfe7e3 !important;
+        border-radius: 22px !important;
+        padding: 1.2rem 1.2rem !important;
+        min-height: 220px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    }
+
+    .intro-info-card h4 {
+        color: #16324f !important;
+        font-weight: 800 !important;
+        margin-top: 0.2rem !important;
+        margin-bottom: 0.8rem !important;
+    }
+
+    .intro-info-card p {
+        color: #445b57 !important;
+        line-height: 1.8 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* ===== 操作步驟卡片 ===== */
+    .intro-step-card {
+        background: #ffffff !important;
+        border: 1px solid #dfe7e3 !important;
+        border-radius: 18px !important;
+        padding: 1rem 1rem !important;
+        min-height: 150px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    }
+
+    .intro-step-label {
+        color: #2d7a58 !important;
+        font-size: 0.9rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .intro-step-card h5 {
+        color: #16324f !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.55rem !important;
+    }
+
+    .intro-step-card p {
+        color: #445b57 !important;
+        line-height: 1.8 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* ===== 藍底資料來源區 ===== */
+    .intro-dataset-box {
+        background: #dcecff !important;
+        border: 1px solid #bdd6f7 !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 1rem !important;
+        margin-top: 0.3rem !important;
+        margin-bottom: 0.8rem !important;
+    }
+
+    .intro-dataset-box p {
+        color: #184a7a !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+    }
+
+    /* ===== 最下方灰字註解 ===== */
+    .intro-footer-note {
+        color: #6c757d !important;
+        font-size: 0.95rem !important;
+        line-height: 1.8 !important;
+        margin-top: 0.2rem !important;
+        margin-bottom: 1rem !important;
+    }
+
+    /* ===== 避免深色主題把 markdown 文字洗掉 ===== */
+    .intro-force-dark-text,
+    .intro-force-dark-text p,
+    .intro-force-dark-text li,
+    .intro-force-dark-text span,
+    .intro-force-dark-text div,
+    .intro-force-dark-text h1,
+    .intro-force-dark-text h2,
+    .intro-force-dark-text h3,
+    .intro-force-dark-text h4,
+    .intro-force-dark-text h5,
+    .intro-force-dark-text h6 {
+        color: inherit !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 def inject_global_styles():
     st.markdown(
         """
@@ -1067,6 +1203,7 @@ def get_page_from_query(default_page="intro"):
 
 
 def render_intro_page(df):
+    inject_intro_page_css()
     st.markdown(
         f"""
         <div class="hero-card">
