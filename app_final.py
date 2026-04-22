@@ -1155,7 +1155,7 @@ def render_demographic_block():
     with col1:
         gender = st.selectbox(
             "性別",
-            ["請選擇", "男", "女", "其他", "不願透露"],
+            ["請選擇", "男", "女"],
             key="demo_gender",
         )
     with col2:
@@ -1167,7 +1167,7 @@ def render_demographic_block():
     with col3:
         education_level = st.selectbox(
             "教育程度",
-            ["請選擇", "高中職以下", "專科", "大學", "碩士", "博士", "其他", "不願透露"],
+            ["請選擇", "高中職以下", "專科", "大學", "碩士", "博士"],
             key="demo_education_level",
         )
 
