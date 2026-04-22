@@ -447,7 +447,6 @@ def calculate_recommendation_score(
 def build_top10_display(ranked_df, system_mode):
     if system_mode == "A":
         display_cols = [
-            "restid",
             "name",
             "city",
             "address",
@@ -458,7 +457,6 @@ def build_top10_display(ranked_df, system_mode):
         ]
     elif system_mode == "B":
         display_cols = [
-            "restid",
             "name",
             "city",
             "address",
@@ -472,7 +470,6 @@ def build_top10_display(ranked_df, system_mode):
         ]
     else:
         display_cols = [
-            "restid",
             "name",
             "city",
             "address",
@@ -539,6 +536,7 @@ def build_top10_display(ranked_df, system_mode):
         "google_map_link": "Google 地圖",
     }
     top10 = top10.rename(columns=rename_map)
+
     if "google_maps_url" in top10.columns:
         top10 = top10.drop(columns=["google_maps_url"])
 
@@ -766,16 +764,23 @@ def inject_global_styles():
             margin-bottom: 10px;
             padding: 8px 14px;
             border-radius: 999px;
-            background: #eff6ff;
-            color: #1d4ed8;
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
             font-weight: 700;
         }
         .survey-card {
-            background: #ffffff;
+            background: #ffffff !important;
             border: 1px solid #e5e7eb;
             border-radius: 18px;
             padding: 18px 18px 12px 18px;
             margin-bottom: 14px;
+            color: #1e293b !important;
+        }
+        .survey-card strong,
+        .survey-card span,
+        .survey-card p,
+        .survey-card div {
+            color: #1e293b !important;
         }
         .survey-section-title {
             font-size: 1.2rem;
@@ -788,6 +793,29 @@ def inject_global_styles():
             color: #64748b;
             font-size: 0.95rem;
             margin-bottom: 1rem;
+        }
+        .operation-tip-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 16px 18px;
+            margin-top: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .operation-tip-title {
+            color: #1e293b;
+            font-size: 1.02rem;
+            font-weight: 800;
+            margin-bottom: 0.45rem;
+        }
+        .operation-tip-list {
+            margin: 0;
+            padding-left: 1.15rem;
+            color: #334155;
+            line-height: 1.8;
+        }
+        .operation-tip-list li {
+            margin-bottom: 0.3rem;
         }
         .recommend-table-wrap {
             width: 100%;
@@ -820,12 +848,12 @@ def inject_global_styles():
         .recommend-table tbody tr:nth-child(even) {
             background-color: #fafafa;
         }
-        .recommend-table tbody td:nth-child(3),
-        .recommend-table tbody td:nth-child(5) {
+        .recommend-table tbody td:nth-child(2),
+        .recommend-table tbody td:nth-child(4) {
             text-align: left;
         }
-        .recommend-table thead th:nth-child(5),
-        .recommend-table tbody td:nth-child(5) {
+        .recommend-table thead th:nth-child(4),
+        .recommend-table tbody td:nth-child(4) {
             min-width: 360px;
             white-space: normal;
         }
@@ -854,7 +882,6 @@ def inject_global_styles():
             background: #f8fafc;
             font-weight: 800;
         }
-        /* 深色/淺色主題都維持可讀性 */
         .recommend-table,
         .survey-top10-table {
             background: #ffffff !important;
@@ -879,12 +906,38 @@ def inject_global_styles():
             color: #2563eb !important;
         }
         .mini-metric-card {
-            background: #f8fafc;
+            background: #f8fafc !important;
             border: 1px solid #e2e8f0;
             border-radius: 16px;
             padding: 14px 16px;
             margin-top: 0.75rem;
             margin-bottom: 0.75rem;
+            color: #1e293b !important;
+        }
+        .mini-metric-card strong,
+        .mini-metric-card p,
+        .mini-metric-card span,
+        .mini-metric-card div {
+            color: #1e293b !important;
+        }
+        div[data-testid="stForm"] .stRadio p,
+        div[data-testid="stForm"] .stCheckbox p,
+        div[data-testid="stForm"] .stSelectbox label,
+        div[data-testid="stForm"] .stTextArea label,
+        div[data-testid="stForm"] .stTextArea p,
+        div[data-testid="stForm"] .stSelectbox p,
+        div[data-testid="stForm"] .stMarkdown p,
+        div[data-testid="stForm"] .stMarkdown span,
+        div[data-testid="stForm"] .stMarkdown div {
+            color: #1e293b !important;
+        }
+        div[data-testid="stForm"] [data-baseweb="select"] > div,
+        div[data-testid="stForm"] textarea {
+            background: #ffffff !important;
+            color: #1e293b !important;
+        }
+        div[data-testid="stForm"] textarea::placeholder {
+            color: #94a3b8 !important;
         }
         </style>
         """,
@@ -1429,6 +1482,21 @@ elif st.session_state["page"] == "recommend":
     st.write("請依照你的偏好調整各構面權重，系統將提供推薦結果。")
     st.info(f"目前測試版本：系統 {system_mode}")
     st.warning("手機版操作提醒：若你沒有看到左側的偏好拉桿，請先點左上角的小箭頭展開設定面板。")
+
+    st.markdown(
+        """
+        <div class="operation-tip-card">
+            <div class="operation-tip-title">建議操作順序（第一次使用者可照這個步驟進行）</div>
+            <ol class="operation-tip-list">
+                <li><strong>先調整左側偏好權重</strong>：依照你在意的面向，調整食物、服務、氣氛、價格、綠色與地理位置的重要程度。</li>
+                <li><strong>再按「取得我的位置」</strong>：如果你希望系統把距離也納入考量，請先允許瀏覽器使用定位。</li>
+                <li><strong>往下查看 Top 10 推薦結果</strong>：你可以直接比較餐廳名稱、地址、評分，以及 Google 地圖連結。</li>
+                <li><strong>體驗完成後再填寫問卷</strong>：如果你想測試不同偏好，也可以先重新調整拉桿，再觀察推薦結果變化。</li>
+            </ol>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     col_top_1, col_top_2 = st.columns([1, 1])
 
