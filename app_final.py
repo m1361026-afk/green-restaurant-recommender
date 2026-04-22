@@ -1,6 +1,8 @@
 import os
 import math
 import json
+import html
+import random
 from uuid import uuid4
 from pathlib import Path
 
@@ -9,6 +11,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from urllib.parse import quote_plus
+from math import log2
 from streamlit_js_eval import streamlit_js_eval
 
 # =========================
@@ -84,12 +87,201 @@ def ensure_response_table_exists():
         tr1 TINYINT NOT NULL,
         tr2 TINYINT NOT NULL,
         tr3 TINYINT NOT NULL,
-        feedback_text TEXT NULL
+        participant_token VARCHAR(36) NULL,
+        gender VARCHAR(20) NULL,
+        age_group VARCHAR(20) NULL,
+        education_level VARCHAR(50) NULL,
+        feedback_text TEXT NULL,
+        relevant_count TINYINT NULL,
+        irrelevant_count TINYINT NULL,
+        precision_at_10 DECIMAL(6,4) NULL,
+        ndcg_at_10 DECIMAL(6,4) NULL,
+        mrr DECIMAL(6,4) NULL,
+        first_relevant_rank TINYINT NULL
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     """
+
+    required_columns = {
+        "participant_token": "VARCHAR(36) NULL",
+        "gender": "VARCHAR(20) NULL",
+        "age_group": "VARCHAR(20) NULL",
+        "education_level": "VARCHAR(50) NULL",
+        "relevant_count": "TINYINT NULL",
+        "irrelevant_count": "TINYINT NULL",
+        "precision_at_10": "DECIMAL(6,4) NULL",
+        "ndcg_at_10": "DECIMAL(6,4) NULL",
+        "mrr": "DECIMAL(6,4) NULL",
+        "first_relevant_rank": "TINYINT NULL",
+    }
+
+    with get_engine().begin() as conn:
+        conn.execute(text(ddl))
+        existing_columns = {
+            row[0]
+            for row in conn.execute(
+                text(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'experiment_questionnaire_responses'
+                    """
+                )
+            )
+        }
+
+        for column_name, column_type in required_columns.items():
+            if column_name not in existing_columns:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE experiment_questionnaire_responses ADD COLUMN {column_name} {column_type}"
+                    )
+                )
+    return True
+
+
+# =========================
+# 4-1. 初始化受試者分派資料表
+# =========================
+@st.cache_resource
+def ensure_assignment_table_exists():
+    ddl = """
+    CREATE TABLE IF NOT EXISTS experiment_participant_assignments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        participant_token VARCHAR(36) NOT NULL UNIQUE,
+        assigned_mode VARCHAR(1) NOT NULL,
+        assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_response_uuid VARCHAR(36) NULL,
+        completed_at DATETIME NULL
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    """
+
     with get_engine().begin() as conn:
         conn.execute(text(ddl))
     return True
+
+
+ASSIGNMENT_MODES = ["A", "B", "C"]
+
+
+def get_participant_token_from_query():
+    try:
+        token = str(st.query_params.get("pt", "")).strip()
+    except Exception:
+        token = ""
+    return token
+
+
+def sync_query_route(page_value, participant_token, mode_override=""):
+    try:
+        current_page = str(st.query_params.get("page", "")).lower()
+    except Exception:
+        current_page = ""
+
+    try:
+        current_token = str(st.query_params.get("pt", "")).strip()
+    except Exception:
+        current_token = ""
+
+    try:
+        current_mode_override = str(st.query_params.get("mode", "")).upper()
+    except Exception:
+        current_mode_override = ""
+
+    route_changed = False
+    if current_page != page_value:
+        st.query_params["page"] = page_value
+        route_changed = True
+
+    if participant_token and current_token != participant_token:
+        st.query_params["pt"] = participant_token
+        route_changed = True
+
+    if mode_override:
+        if current_mode_override != mode_override:
+            st.query_params["mode"] = mode_override
+            route_changed = True
+
+    return route_changed
+
+
+def go_to_page(page_name):
+    page_name = page_name if page_name in VALID_PAGES else "intro"
+    st.session_state["page"] = page_name
+    participant_token = st.session_state.get("participant_token", "")
+    mode_override = st.session_state.get("mode_override", "")
+    sync_query_route(page_name, participant_token, mode_override)
+    st.rerun()
+
+
+def choose_balanced_mode(conn):
+    counts = {mode: 0 for mode in ASSIGNMENT_MODES}
+    rows = conn.execute(
+        text(
+            """
+            SELECT assigned_mode, COUNT(*) AS cnt
+            FROM experiment_participant_assignments
+            GROUP BY assigned_mode
+            """
+        )
+    ).mappings().all()
+
+    for row in rows:
+        mode = str(row["assigned_mode"]).upper()
+        if mode in counts:
+            counts[mode] = int(row["cnt"])
+
+    min_count = min(counts.values())
+    candidates = [mode for mode, cnt in counts.items() if cnt == min_count]
+    return random.choice(candidates)
+
+
+def get_or_create_assigned_mode(participant_token, forced_mode=""):
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT assigned_mode
+                FROM experiment_participant_assignments
+                WHERE participant_token = :participant_token
+                LIMIT 1
+                """
+            ),
+            {"participant_token": participant_token},
+        ).fetchone()
+
+        if row is not None and row[0] in ASSIGNMENT_MODES:
+            return row[0]
+
+        assigned_mode = forced_mode if forced_mode in ASSIGNMENT_MODES else choose_balanced_mode(conn)
+        conn.execute(
+            text(
+                """
+                INSERT INTO experiment_participant_assignments (participant_token, assigned_mode)
+                VALUES (:participant_token, :assigned_mode)
+                """
+            ),
+            {"participant_token": participant_token, "assigned_mode": assigned_mode},
+        )
+        return assigned_mode
+
+
+def mark_assignment_completed(participant_token, response_uuid):
+    if not participant_token or not response_uuid:
+        return
+
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                """
+                UPDATE experiment_participant_assignments
+                SET completed_response_uuid = COALESCE(completed_response_uuid, :response_uuid),
+                    completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+                WHERE participant_token = :participant_token
+                """
+            ),
+            {"participant_token": participant_token, "response_uuid": response_uuid},
+        )
 
 
 # =========================
@@ -135,6 +327,20 @@ def distance_to_geo_score(distance_km, max_km=20):
     clipped = min(distance_km, max_km)
     score = 5 - (clipped / max_km) * 4
     return round(max(1.0, min(5.0, score)), 2)
+
+
+def build_google_maps_url(name, city=None, address=None):
+    parts = [str(value).strip() for value in [name, city, address] if pd.notna(value) and str(value).strip()]
+    query = " ".join(parts)
+    return f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}" if query else ""
+
+
+def build_google_maps_anchor(url, label="查看地圖"):
+    if not url:
+        return "-"
+    safe_url = html.escape(url, quote=True)
+    safe_label = html.escape(label)
+    return f'<a href="{safe_url}" target="_blank">{safe_label}</a>'
 
 
 # =========================
@@ -281,6 +487,10 @@ def build_top10_display(ranked_df, system_mode):
         ]
 
     top10 = ranked_df[display_cols].head(10).copy()
+    top10["google_maps_url"] = top10.apply(
+        lambda row: build_google_maps_url(row.get("name"), row.get("city"), row.get("address")),
+        axis=1,
+    )
 
     one_decimal_cols = [
         "overall_rating",
@@ -311,6 +521,8 @@ def build_top10_display(ranked_df, system_mode):
                 lambda x: f"{x:.3f}" if pd.notna(x) else "-"
             )
 
+    top10["google_map_link"] = top10["google_maps_url"].apply(build_google_maps_anchor)
+
     rename_map = {
         "name": "餐廳名稱",
         "city": "縣市",
@@ -324,8 +536,17 @@ def build_top10_display(ranked_df, system_mode):
         "distance_km": "距離(km)",
         "geo_score": "地理分數",
         "final_score": "推薦總分",
+        "google_map_link": "Google 地圖",
     }
     top10 = top10.rename(columns=rename_map)
+    if "google_maps_url" in top10.columns:
+        top10 = top10.drop(columns=["google_maps_url"])
+
+    if "Google 地圖" in top10.columns and "地址" in top10.columns:
+        google_col = top10.pop("Google 地圖")
+        insert_at = top10.columns.get_loc("地址") + 1
+        top10.insert(insert_at, "Google 地圖", google_col)
+
     top10.insert(0, "推薦排名", range(1, len(top10) + 1))
     return top10
 
@@ -345,6 +566,7 @@ def build_experiment_snapshot(ranked_df, system_mode, weights, use_geo, user_lat
     }
 
     for idx, (_, row) in enumerate(top10.iterrows(), start=1):
+        google_maps_url = build_google_maps_url(row.get("name"), row.get("city"), row.get("address"))
         snapshot["top10"].append(
             {
                 "rank": idx,
@@ -352,6 +574,7 @@ def build_experiment_snapshot(ranked_df, system_mode, weights, use_geo, user_lat
                 "name": row.get("name"),
                 "city": row.get("city"),
                 "address": row.get("address"),
+                "google_maps_url": google_maps_url,
                 "final_score": None if pd.isna(row.get("final_score")) else round(float(row.get("final_score")), 4),
             }
         )
@@ -362,9 +585,14 @@ def build_experiment_snapshot(ranked_df, system_mode, weights, use_geo, user_lat
 # =========================
 # 11. 儲存問卷結果
 # =========================
-def save_questionnaire_response(snapshot, answers, feedback_text):
+def save_questionnaire_response(snapshot, answers, demographics, feedback_text, empirical_evaluation=None):
     response_uuid = str(uuid4())
     weights = snapshot.get("weights", {})
+    snapshot_to_store = dict(snapshot)
+    empirical_summary = (empirical_evaluation or {}).get("summary", {})
+    if empirical_evaluation is not None:
+        snapshot_to_store["empirical_evaluation"] = empirical_evaluation
+
     insert_sql = text(
         """
         INSERT INTO experiment_questionnaire_responses (
@@ -374,7 +602,10 @@ def save_questionnaire_response(snapshot, answers, feedback_text):
             us1, us2, us3,
             pu1, pu2, pu3, pu4,
             tr1, tr2, tr3,
-            feedback_text
+            participant_token,
+            gender, age_group, education_level,
+            feedback_text,
+            relevant_count, irrelevant_count, precision_at_10, ndcg_at_10, mrr, first_relevant_rank
         ) VALUES (
             :response_uuid, :system_mode, :location_used, :user_lat, :user_lon,
             :food_w, :service_w, :atmosphere_w, :price_w, :green_w, :geo_w, :overall_w,
@@ -382,7 +613,10 @@ def save_questionnaire_response(snapshot, answers, feedback_text):
             :us1, :us2, :us3,
             :pu1, :pu2, :pu3, :pu4,
             :tr1, :tr2, :tr3,
-            :feedback_text
+            :participant_token,
+            :gender, :age_group, :education_level,
+            :feedback_text,
+            :relevant_count, :irrelevant_count, :precision_at_10, :ndcg_at_10, :mrr, :first_relevant_rank
         )
         """
     )
@@ -400,7 +634,7 @@ def save_questionnaire_response(snapshot, answers, feedback_text):
         "green_w": weights.get("green_w"),
         "geo_w": weights.get("geo_w"),
         "overall_w": weights.get("overall_w"),
-        "recommendation_snapshot_json": json.dumps(snapshot, ensure_ascii=False),
+        "recommendation_snapshot_json": json.dumps(snapshot_to_store, ensure_ascii=False),
         "us1": answers["US1"],
         "us2": answers["US2"],
         "us3": answers["US3"],
@@ -411,12 +645,23 @@ def save_questionnaire_response(snapshot, answers, feedback_text):
         "tr1": answers["TR1"],
         "tr2": answers["TR2"],
         "tr3": answers["TR3"],
+        "participant_token": st.session_state.get("participant_token"),
+        "gender": demographics.get("gender"),
+        "age_group": demographics.get("age_group"),
+        "education_level": demographics.get("education_level"),
         "feedback_text": feedback_text.strip() if feedback_text else None,
+        "relevant_count": empirical_summary.get("relevant_count"),
+        "irrelevant_count": empirical_summary.get("irrelevant_count"),
+        "precision_at_10": empirical_summary.get("precision_at_10"),
+        "ndcg_at_10": empirical_summary.get("ndcg_at_10"),
+        "mrr": empirical_summary.get("mrr"),
+        "first_relevant_rank": empirical_summary.get("first_relevant_rank"),
     }
 
     with get_engine().begin() as conn:
         conn.execute(insert_sql, payload)
 
+    mark_assignment_completed(st.session_state.get("participant_token"), response_uuid)
     return response_uuid
 
 
@@ -584,6 +829,63 @@ def inject_global_styles():
             min-width: 360px;
             white-space: normal;
         }
+        .recommend-table a, .survey-top10-table a, .gm-link {
+            color: #2563eb;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .recommend-table a:hover, .survey-top10-table a:hover, .gm-link:hover {
+            text-decoration: underline;
+        }
+        .survey-top10-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.7rem;
+            margin-bottom: 1rem;
+            background: #ffffff;
+        }
+        .survey-top10-table th, .survey-top10-table td {
+            border: 1px solid #e5e7eb;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .survey-top10-table th {
+            background: #f8fafc;
+            font-weight: 800;
+        }
+        /* 深色/淺色主題都維持可讀性 */
+        .recommend-table,
+        .survey-top10-table {
+            background: #ffffff !important;
+            color: #1e293b !important;
+        }
+        .recommend-table thead th,
+        .survey-top10-table th {
+            background: #f3f6fa !important;
+            color: #1f2a44 !important;
+        }
+        .recommend-table tbody td,
+        .survey-top10-table td {
+            background: #ffffff !important;
+            color: #1e293b !important;
+        }
+        .recommend-table tbody tr:nth-child(even) td {
+            background: #fafafa !important;
+        }
+        .recommend-table a,
+        .survey-top10-table a,
+        .gm-link {
+            color: #2563eb !important;
+        }
+        .mini-metric-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 14px 16px;
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -591,8 +893,84 @@ def inject_global_styles():
 
 
 def render_static_recommendation_table(display_df):
-    table_html = display_df.to_html(index=False, classes="recommend-table", border=0, escape=True)
+    table_html = display_df.to_html(index=False, classes="recommend-table", border=0, escape=False)
     st.markdown(f'<div class="recommend-table-wrap">{table_html}</div>', unsafe_allow_html=True)
+
+
+def build_snapshot_top10_display(snapshot):
+    rows = []
+    for item in snapshot.get("top10", []):
+        rows.append(
+            {
+                "推薦排名": item.get("rank"),
+                "餐廳名稱": html.escape(str(item.get("name", "-"))),
+                "縣市": html.escape(str(item.get("city", "-"))),
+                "地址": html.escape(str(item.get("address", "-"))),
+                "Google 地圖": build_google_maps_anchor(item.get("google_maps_url")),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def render_snapshot_top10_table(snapshot):
+    display_df = build_snapshot_top10_display(snapshot)
+    if display_df.empty:
+        return
+    table_html = display_df.to_html(index=False, classes="survey-top10-table", border=0, escape=False)
+    st.markdown(table_html, unsafe_allow_html=True)
+
+
+def build_empirical_evaluation(snapshot):
+    evaluation_rows = []
+    binary_relevance = []
+
+    for item in snapshot.get("top10", []):
+        key = f"empirical_rank_{item.get('rank')}"
+        judgment = st.session_state.get(key)
+        is_relevant = 1 if judgment == "符合需求" else 0
+        binary_relevance.append(is_relevant)
+        evaluation_rows.append(
+            {
+                "rank": item.get("rank"),
+                "restid": item.get("restid"),
+                "name": item.get("name"),
+                "city": item.get("city"),
+                "address": item.get("address"),
+                "google_maps_url": item.get("google_maps_url"),
+                "judgment": judgment,
+                "is_relevant": is_relevant,
+            }
+        )
+
+    relevant_count = sum(binary_relevance)
+    irrelevant_count = len(binary_relevance) - relevant_count
+    total_count = len(binary_relevance)
+    precision_at_10 = round(relevant_count / total_count, 4) if total_count else 0.0
+
+    dcg = 0.0
+    for idx, rel in enumerate(binary_relevance, start=1):
+        dcg += (2 ** rel - 1) / log2(idx + 1)
+
+    ideal_relevance = sorted(binary_relevance, reverse=True)
+    idcg = 0.0
+    for idx, rel in enumerate(ideal_relevance, start=1):
+        idcg += (2 ** rel - 1) / log2(idx + 1)
+    ndcg_at_10 = round(dcg / idcg, 4) if idcg > 0 else 0.0
+
+    first_relevant_rank = next((idx for idx, rel in enumerate(binary_relevance, start=1) if rel == 1), None)
+    mrr = round(1 / first_relevant_rank, 4) if first_relevant_rank else 0.0
+
+    return {
+        "judgments": evaluation_rows,
+        "summary": {
+            "relevant_count": relevant_count,
+            "irrelevant_count": irrelevant_count,
+            "precision_at_10": precision_at_10,
+            "ndcg_at_10": ndcg_at_10,
+            "first_relevant_rank": first_relevant_rank,
+            "mrr": mrr,
+        },
+    }
 
 
 VALID_PAGES = {"intro", "recommend", "survey", "thank_you"}
@@ -604,34 +982,6 @@ def get_page_from_query(default_page="intro"):
     except Exception:
         page_from_query = default_page
     return page_from_query if page_from_query in VALID_PAGES else default_page
-
-
-def sync_query_route(mode_value, page_value):
-    try:
-        current_mode = str(st.query_params.get("mode", "")).upper()
-    except Exception:
-        current_mode = ""
-    try:
-        current_page = str(st.query_params.get("page", "")).lower()
-    except Exception:
-        current_page = ""
-
-    route_changed = False
-    if current_mode != mode_value:
-        st.query_params["mode"] = mode_value
-        route_changed = True
-    if current_page != page_value:
-        st.query_params["page"] = page_value
-        route_changed = True
-    return route_changed
-
-
-def go_to_page(page_name):
-    page_name = page_name if page_name in VALID_PAGES else "intro"
-    st.session_state["page"] = page_name
-    mode_value = st.session_state.get("system_mode", "C")
-    sync_query_route(mode_value, page_name)
-    st.rerun()
 
 
 def render_intro_page(df):
@@ -724,8 +1074,8 @@ def render_intro_page(df):
                 unsafe_allow_html=True,
             )
 
-    st.info(f"目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。")
-    st.caption("問卷資料將以匿名方式儲存，不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。")
+    st.info(f"本研究參考環境部的環保餐廳環境即時通地圖資料，目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。")
+    st.caption("資料來源：環境部資料開放平臺－環保餐廳環境即時通地圖。問卷資料將以匿名方式儲存，不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。")
 
     if st.button("開始使用推薦系統", use_container_width=True, type="primary"):
         go_to_page("recommend")
@@ -733,25 +1083,39 @@ def render_intro_page(df):
 
 def render_sidebar(system_mode):
     st.sidebar.header("請設定你的偏好權重")
+    st.sidebar.caption("數值越高，代表你越重視該構面；若某構面對你不重要，可以把權重調低。")
 
     if system_mode == "A":
         overall_w = st.sidebar.slider("整體評分", 0, 10, 5)
+        st.sidebar.caption("整體評分：參考 Google Map 上的評分，綜合餐廳在整體用餐體驗上的表現。")
         geo_w = st.sidebar.slider("地理位置", 0, 10, 5)
+        st.sidebar.caption("地理位置：是否在意餐廳離自己近不近；越高代表你越希望推薦結果兼顧距離。")
         food_w = service_w = atmosphere_w = price_w = green_w = 0
     elif system_mode == "B":
         food_w = st.sidebar.slider("食物", 0, 10, 5)
+        st.sidebar.caption("食物：對於餐點口味、品質與整體餐食表現的在意程度。")
         service_w = st.sidebar.slider("服務", 0, 10, 5)
+        st.sidebar.caption("服務：對於店員態度、出餐互動與服務品質的在意程度。")
         atmosphere_w = st.sidebar.slider("氣氛", 0, 10, 5)
+        st.sidebar.caption("氣氛：對於環境舒適度、裝潢風格與用餐感受的在意程度。")
         price_w = st.sidebar.slider("價格", 0, 10, 5)
+        st.sidebar.caption("價格：對於價格是否合理、CP 值是否符合期待的在意程度。")
         geo_w = st.sidebar.slider("地理位置", 0, 10, 5)
+        st.sidebar.caption("地理位置：是否在意餐廳離自己近不近；越高代表你越希望推薦結果兼顧距離。")
         overall_w = green_w = 0
     else:
         food_w = st.sidebar.slider("食物", 0, 10, 5)
+        st.sidebar.caption("食物：對於餐點口味、品質與整體餐食表現的在意程度。")
         service_w = st.sidebar.slider("服務", 0, 10, 5)
+        st.sidebar.caption("服務：對於店員態度、出餐互動與服務品質的在意程度。")
         atmosphere_w = st.sidebar.slider("氣氛", 0, 10, 5)
+        st.sidebar.caption("氣氛：對於環境舒適度、裝潢風格與用餐感受的在意程度。")
         price_w = st.sidebar.slider("價格", 0, 10, 5)
+        st.sidebar.caption("價格：對於價格是否合理、CP 值是否符合期待的在意程度。")
         green_w = st.sidebar.slider("綠色", 0, 10, 5)
+        st.sidebar.caption("綠色：對於餐廳在環保、永續與資源友善上等面向的在意程度。")
         geo_w = st.sidebar.slider("地理位置", 0, 10, 5)
+        st.sidebar.caption("地理位置：是否在意餐廳離自己近不近；越高代表你越希望推薦結果兼顧距離。")
         overall_w = 0
 
     st.sidebar.header("地理位置")
@@ -783,6 +1147,37 @@ def render_question_block(section_title, questions, key_prefix):
         st.caption("1 = 非常不同意　2 = 不同意　3 = 普通　4 = 同意　5 = 非常同意")
 
 
+def render_demographic_block():
+    st.markdown('<div class="survey-section-title">基本資料</div>', unsafe_allow_html=True)
+    st.caption("以下資料僅供匿名統計分析使用。")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        gender = st.selectbox(
+            "性別",
+            ["請選擇", "男", "女", "其他", "不願透露"],
+            key="demo_gender",
+        )
+    with col2:
+        age_group = st.selectbox(
+            "年齡",
+            ["請選擇", "20 歲以下", "21–30 歲", "31–40 歲", "41–50 歲", "51–60 歲", "61 歲以上"],
+            key="demo_age_group",
+        )
+    with col3:
+        education_level = st.selectbox(
+            "教育程度",
+            ["請選擇", "高中職以下", "專科", "大學", "碩士", "博士", "其他", "不願透露"],
+            key="demo_education_level",
+        )
+
+    return {
+        "gender": None if gender == "請選擇" else gender,
+        "age_group": None if age_group == "請選擇" else age_group,
+        "education_level": None if education_level == "請選擇" else education_level,
+    }
+
+
 def render_survey_page():
     if "latest_snapshot" not in st.session_state:
         st.warning("請先完成推薦系統體驗，再進入問卷填寫。")
@@ -810,9 +1205,23 @@ def render_survey_page():
         unsafe_allow_html=True,
     )
 
-    top3_names = [item["name"] for item in snapshot["top10"][:3]]
-    if top3_names:
-        st.info("你剛才看到的前 3 名推薦為：" + "、".join(top3_names))
+    st.markdown('<div class="survey-section-title">A. 本次 Top 10 推薦餐廳清單</div>', unsafe_allow_html=True)
+    st.caption("你可以點擊表格中的 Google 地圖連結，前往 Google 地圖搜尋頁面查看該餐廳資訊。")
+    render_snapshot_top10_table(snapshot)
+
+    st.markdown('<div class="survey-section-title">B. Top 10 推薦結果的分析評估</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="mini-metric-card">
+            請你逐一判斷前 10 名推薦餐廳是否符合你的需求；建議你先參考餐廳名稱、地址與 Google 地圖頁面資訊後再作答。<br><br>
+            本研究會依據這份二元判斷結果，整理以下排序品質指標：<br>
+            1. <strong>Precision@10</strong>：前 10 名中符合需求的比例。<br>
+            2. <strong>nDCG@10</strong>：不只看有幾家符合需求，也衡量符合需求的餐廳是否排在較前面。<br>
+            3. <strong>MRR</strong>：第一家符合需求的餐廳出現在第幾名，越早出現代表排序越有效。<br><br>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     us_questions = [
         ("US1", "我對此餐廳推薦系統的整體使用經驗感到滿意。"),
@@ -832,6 +1241,29 @@ def render_survey_page():
     ]
 
     with st.form("questionnaire_form"):
+        demographics = render_demographic_block()
+
+        st.markdown("**請逐一評估前 10 名推薦餐廳：**")
+        for item in snapshot["top10"]:
+            cols = st.columns([0.7, 3.2, 2.4])
+            with cols[0]:
+                st.markdown(f"**#{item['rank']}**")
+            with cols[1]:
+                st.markdown(
+                    f'<a href="{item["google_maps_url"]}" target="_blank">{item["name"]}</a><br>'
+                    f'{item["city"]}｜{item["address"]}',
+                    unsafe_allow_html=True
+                )
+            with cols[2]:
+                st.radio(
+                    label=f"Top {item['rank']} 評估",
+                    options=["符合需求", "不符合需求"],
+                    index=None,
+                    horizontal=True,
+                    key=f"empirical_rank_{item['rank']}",
+                    label_visibility="collapsed",
+                )
+
         render_question_block("一、使用者滿意度", us_questions, "us")
         render_question_block("二、知覺有用性", pu_questions, "pu")
         render_question_block("三、推薦信任", tr_questions, "tr")
@@ -857,15 +1289,29 @@ def render_survey_page():
             "TR2": st.session_state.get("tr_TR2"),
             "TR3": st.session_state.get("tr_TR3"),
         }
+        empirical_choices = [st.session_state.get(f"empirical_rank_{item['rank']}") for item in snapshot["top10"]]
+        empirical_unanswered = [item["rank"] for item, value in zip(snapshot["top10"], empirical_choices) if value is None]
 
         unanswered = [qid for qid, value in answers.items() if value is None]
-        if unanswered:
+        missing_demographics = [label for label, value in {
+            "性別": demographics.get("gender"),
+            "年齡": demographics.get("age_group"),
+            "教育程度": demographics.get("education_level"),
+        }.items() if value is None]
+
+        if empirical_unanswered:
+            st.warning("請先完成前 10 名推薦餐廳的主觀符合度評估後再提交。")
+        elif missing_demographics:
+            st.warning("請先完成基本資料填寫後再提交。")
+        elif unanswered:
             st.warning("你還有題目尚未作答，請完成全部題目後再提交。")
         elif not consent:
             st.warning("請先勾選同意聲明後再提交。")
         else:
-            response_uuid = save_questionnaire_response(snapshot, answers, feedback_text)
+            empirical_evaluation = build_empirical_evaluation(snapshot)
+            response_uuid = save_questionnaire_response(snapshot, answers, demographics, feedback_text, empirical_evaluation)
             st.session_state["last_response_uuid"] = response_uuid
+            st.session_state["empirical_summary"] = empirical_evaluation.get("summary", {})
             go_to_page("thank_you")
 
     col_left, col_right = st.columns(2)
@@ -880,6 +1326,20 @@ def render_thank_you_page():
     st.write(f"本次回覆編號：`{response_uuid}`")
     st.caption("建議你保留這個編號，方便之後核對資料。")
 
+    empirical_summary = st.session_state.get("empirical_summary")
+    if empirical_summary:
+        first_relevant_rank = empirical_summary.get("first_relevant_rank")
+        first_relevant_rank_text = first_relevant_rank if first_relevant_rank else "未命中"
+        st.info(
+            "本次 Top 10 符合度評估結果："
+            f"符合需求 {empirical_summary.get('relevant_count', 0)} 家、"
+            f"不符合需求 {empirical_summary.get('irrelevant_count', 0)} 家；"
+            f"Precision@10 = {empirical_summary.get('precision_at_10', 0):.2f}；"
+            f"nDCG@10 = {empirical_summary.get('ndcg_at_10', 0):.4f}；"
+            f"MRR = {empirical_summary.get('mrr', 0):.4f}；"
+            f"第一個符合需求的排名 = {first_relevant_rank_text}。"
+        )
+
     if st.button("返回首頁", use_container_width=True):
         for key in [
             "latest_snapshot",
@@ -888,6 +1348,7 @@ def render_thank_you_page():
             "location_status",
             "user_lat",
             "user_lon",
+            "empirical_summary",
         ]:
             if key == "location_status":
                 st.session_state[key] = "unknown"
@@ -901,45 +1362,48 @@ def render_thank_you_page():
 # =========================
 # 13. 頁面初始化
 # =========================
-st.set_page_config(page_title="綠色餐廳推薦系統", layout="wide")
+st.set_page_config(page_title="綠色餐廳推薦系統", layout="wide", initial_sidebar_state="expanded")
 inject_global_styles()
 ensure_response_table_exists()
+ensure_assignment_table_exists()
 
-# 版本控制：
-# 1. 若網址有 ?mode=A / ?mode=B / ?mode=C，優先使用網址參數
-# 2. 若網址沒帶參數，才使用預設版本 default_mode
-# 3. 頁面切換則使用 ?page=intro / ?page=recommend / ?page=survey / ?page=thank_you
-default_mode = "C"
+# 路由與分派控制：
+# 1. 對外只需發放單一入口連結（不需附帶 mode）
+# 2. 系統會為每位新受試者建立 participant token，並自動平衡分派到 A/B/C 其中一組
+# 3. 若開發者手動在網址加上 ?mode=A / ?mode=B / ?mode=C，則可用於測試指定版本
+page_from_query = get_page_from_query("intro")
+participant_token = get_participant_token_from_query() or str(uuid4())
 
 try:
-    mode_from_query = str(st.query_params.get("mode", default_mode)).upper()
-    if mode_from_query not in {"A", "B", "C"}:
-        mode_from_query = default_mode
+    mode_override = str(st.query_params.get("mode", "")).upper().strip()
 except Exception:
-    mode_from_query = default_mode
+    mode_override = ""
+if mode_override not in ASSIGNMENT_MODES:
+    mode_override = ""
 
-page_from_query = get_page_from_query("intro")
+assigned_mode = get_or_create_assigned_mode(participant_token, forced_mode=mode_override)
 
+if "participant_token" not in st.session_state:
+    st.session_state["participant_token"] = participant_token
+if "mode_override" not in st.session_state:
+    st.session_state["mode_override"] = mode_override
 if "page" not in st.session_state:
     st.session_state["page"] = page_from_query
-
 if "user_lat" not in st.session_state:
     st.session_state["user_lat"] = None
-
 if "user_lon" not in st.session_state:
     st.session_state["user_lon"] = None
-
 if "location_status" not in st.session_state:
     st.session_state["location_status"] = "unknown"
-
 if "request_location" not in st.session_state:
     st.session_state["request_location"] = False
 
-# 每次進入頁面都同步目前網址的 mode 與 page
-st.session_state["system_mode"] = mode_from_query
+st.session_state["participant_token"] = participant_token
+st.session_state["mode_override"] = mode_override
+st.session_state["system_mode"] = assigned_mode
 st.session_state["page"] = page_from_query
 
-route_changed = sync_query_route(mode_from_query, page_from_query)
+route_changed = sync_query_route(page_from_query, participant_token, mode_override)
 if route_changed:
     st.rerun()
 
@@ -964,6 +1428,7 @@ elif st.session_state["page"] == "recommend":
     st.title("綠色餐廳推薦系統")
     st.write("請依照你的偏好調整各構面權重，系統將提供推薦結果。")
     st.info(f"目前測試版本：系統 {system_mode}")
+    st.warning("手機版操作提醒：若你沒有看到左側的偏好拉桿，請先點左上角的小箭頭展開設定面板；系統目前已預設展開側欄。")
 
     col_top_1, col_top_2 = st.columns([1, 1])
 
@@ -1060,6 +1525,7 @@ elif st.session_state["page"] == "recommend":
     st.subheader("Top 10 推薦結果")
     top10_display = build_top10_display(ranked_df, system_mode)
     render_static_recommendation_table(top10_display)
+    st.caption("你可以點擊表格中的「Google 地圖」連結，前往 Google 地圖搜尋頁面查看該餐廳。")
 
     st.divider()
     st.markdown(
