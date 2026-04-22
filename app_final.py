@@ -666,142 +666,6 @@ def save_questionnaire_response(snapshot, answers, demographics, feedback_text, 
 # =========================
 # 12. UI 元件
 # =========================
-def inject_intro_page_css():
-    st.markdown("""
-    <style>
-    /* ===== 首頁整體標題與一般文字 ===== */
-    .intro-page-title {
-        color: #183a2d !important;
-        font-weight: 800 !important;
-    }
-
-    .intro-page-text {
-        color: #2f4f46 !important;
-        line-height: 1.9 !important;
-    }
-
-    .intro-section-title {
-        color: #16324f !important;
-        font-weight: 800 !important;
-        margin-top: 0.8rem !important;
-        margin-bottom: 0.6rem !important;
-    }
-
-    /* ===== 首頁上方主視覺區 ===== */
-    .intro-hero-box {
-        background: #eef7f1 !important;
-        border: 1px solid #d8eadf !important;
-        border-radius: 24px !important;
-        padding: 1.4rem 1.6rem !important;
-        margin-bottom: 1.2rem !important;
-    }
-
-    .intro-tab-chip {
-        display: inline-block;
-        background: #dff0e5 !important;
-        color: #215c45 !important;
-        border-radius: 999px !important;
-        padding: 0.35rem 0.85rem !important;
-        font-size: 0.92rem !important;
-        font-weight: 700 !important;
-        margin-right: 0.5rem !important;
-        margin-bottom: 0.6rem !important;
-    }
-
-    /* ===== 三個介紹卡片 ===== */
-    .intro-info-card {
-        background: #ffffff !important;
-        border: 1px solid #dfe7e3 !important;
-        border-radius: 22px !important;
-        padding: 1.2rem 1.2rem !important;
-        min-height: 220px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
-    }
-
-    .intro-info-card h4 {
-        color: #16324f !important;
-        font-weight: 800 !important;
-        margin-top: 0.2rem !important;
-        margin-bottom: 0.8rem !important;
-    }
-
-    .intro-info-card p {
-        color: #445b57 !important;
-        line-height: 1.8 !important;
-        margin-bottom: 0 !important;
-    }
-
-    /* ===== 操作步驟卡片 ===== */
-    .intro-step-card {
-        background: #ffffff !important;
-        border: 1px solid #dfe7e3 !important;
-        border-radius: 18px !important;
-        padding: 1rem 1rem !important;
-        min-height: 150px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
-    }
-
-    .intro-step-label {
-        color: #2d7a58 !important;
-        font-size: 0.9rem !important;
-        font-weight: 800 !important;
-        margin-bottom: 0.5rem !important;
-    }
-
-    .intro-step-card h5 {
-        color: #16324f !important;
-        font-weight: 800 !important;
-        margin-bottom: 0.55rem !important;
-    }
-
-    .intro-step-card p {
-        color: #445b57 !important;
-        line-height: 1.8 !important;
-        margin-bottom: 0 !important;
-    }
-
-    /* ===== 藍底資料來源區 ===== */
-    .intro-dataset-box {
-        background: #dcecff !important;
-        border: 1px solid #bdd6f7 !important;
-        border-radius: 12px !important;
-        padding: 0.8rem 1rem !important;
-        margin-top: 0.3rem !important;
-        margin-bottom: 0.8rem !important;
-    }
-
-    .intro-dataset-box p {
-        color: #184a7a !important;
-        font-weight: 700 !important;
-        margin: 0 !important;
-    }
-
-    /* ===== 最下方灰字註解 ===== */
-    .intro-footer-note {
-        color: #6c757d !important;
-        font-size: 0.95rem !important;
-        line-height: 1.8 !important;
-        margin-top: 0.2rem !important;
-        margin-bottom: 1rem !important;
-    }
-
-    /* ===== 避免深色主題把 markdown 文字洗掉 ===== */
-    .intro-force-dark-text,
-    .intro-force-dark-text p,
-    .intro-force-dark-text li,
-    .intro-force-dark-text span,
-    .intro-force-dark-text div,
-    .intro-force-dark-text h1,
-    .intro-force-dark-text h2,
-    .intro-force-dark-text h3,
-    .intro-force-dark-text h4,
-    .intro-force-dark-text h5,
-    .intro-force-dark-text h6 {
-        color: inherit !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 def inject_global_styles():
     st.markdown(
         """
@@ -821,13 +685,13 @@ def inject_global_styles():
         .hero-title {
             font-size: 2.3rem;
             font-weight: 800;
-            color: #16301d;
+            color: #16301d !important;
             margin-bottom: 0.6rem;
             line-height: 1.25;
         }
         .hero-subtitle {
             font-size: 1.05rem;
-            color: #2f4f37;
+            color: #2f4f37 !important;
             line-height: 1.9;
         }
         .mini-badge {
@@ -856,13 +720,13 @@ def inject_global_styles():
         .feature-title {
             font-size: 1.15rem;
             font-weight: 800;
-            color: #14301f;
+            color: #14301f !important;
             margin-bottom: 0.4rem;
         }
         .feature-text {
             font-size: 1rem;
             line-height: 1.8;
-            color: #334155;
+            color: #334155 !important;
         }
         .flow-card {
             background: #f8fafc;
@@ -874,25 +738,66 @@ def inject_global_styles():
         .flow-step {
             font-size: 0.88rem;
             font-weight: 800;
-            color: #166534;
+            color: #166534 !important;
             margin-bottom: 0.45rem;
         }
         .flow-title {
             font-size: 1.02rem;
             font-weight: 800;
-            color: #1e293b;
+            color: #1e293b !important;
             margin-bottom: 0.35rem;
         }
         .flow-text {
-            color: #475569;
+            color: #475569 !important;
             line-height: 1.7;
         }
         .section-title {
             font-size: 1.45rem;
             font-weight: 800;
-            color: #1e293b;
+            color: #dbeafe !important;
             margin-top: 0.6rem;
             margin-bottom: 0.6rem;
+        }
+        /* 首頁深色主題下，強制維持首頁卡片內文字體可讀性 */
+        .hero-card,
+        .hero-card div,
+        .feature-card,
+        .feature-card div,
+        .flow-card,
+        .flow-card div {
+            color: inherit;
+        }
+
+        .hero-card .mini-badge {
+            color: #1f6a38 !important;
+        }
+
+        .hero-card .hero-title {
+            color: #16301d !important;
+        }
+
+        .hero-card .hero-subtitle {
+            color: #2f4f37 !important;
+        }
+
+        .feature-card .feature-title {
+            color: #14301f !important;
+        }
+
+        .feature-card .feature-text {
+            color: #334155 !important;
+        }
+
+        .flow-card .flow-step {
+            color: #166534 !important;
+        }
+
+        .flow-card .flow-title {
+            color: #1e293b !important;
+        }
+
+        .flow-card .flow-text {
+            color: #475569 !important;
         }
         .summary-chip {
             display: inline-block;
@@ -1202,46 +1107,39 @@ def get_page_from_query(default_page="intro"):
     return page_from_query if page_from_query in VALID_PAGES else default_page
 
 
-
 def render_intro_page(df):
-    inject_intro_page_css()
-
     st.markdown(
-        """
-        <div class="intro-hero-box intro-force-dark-text">
-            <div>
-                <span class="intro-tab-chip">綠色餐廳推薦</span>
-                <span class="intro-tab-chip">評論分析</span>
-                <span class="intro-tab-chip">個人化推薦</span>
-            </div>
-            <h1 class="intro-page-title">歡迎使用綠色餐廳推薦系統</h1>
-            <p class="intro-page-text">
+        f"""
+        <div class="hero-card">
+            <div class="mini-badge">綠色餐廳推薦</div>
+            <div class="mini-badge">評論分析</div>
+            <div class="mini-badge">個人化推薦</div>
+            <div class="hero-title">歡迎使用綠色餐廳推薦系統</div>
+            <div class="hero-subtitle">
                 這個系統會把大量餐廳評論整理成容易理解的資訊，並依照你的偏好，
-                從食物、服務、氣氛、價格、綠色表現與地理位置等面向，提供較符合需求的推薦結果。
-            </p>
-            <p class="intro-page-text">
+                從食物、服務、氣氛、價格、綠色表現與地理位置等面向，提供較符合需求的推薦結果。<br>
                 你可以把「綠色餐廳」想成一種更重視健康、環境友善與資源效率的餐廳：
                 例如更留意食材來源、節能節水、減少一次性用品與降低食物浪費。
-            </p>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="intro-section-title">先用最簡單的方式認識綠色餐廳</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">先用最簡單的方式認識綠色餐廳</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
 
     with col1:
         st.markdown(
             """
-            <div class="intro-info-card intro-force-dark-text">
-                <div style="font-size:2rem;">🥬</div>
-                <h4>它不只是在賣沙拉</h4>
-                <p>
+            <div class="feature-card">
+                <div class="feature-icon">🥬</div>
+                <div class="feature-title">它不只是在賣沙拉</div>
+                <div class="feature-text">
                     綠色餐廳不是只賣健康餐，也不是只有蔬食才算。
-                    它的核心概念是：在食材、菜單設計、營運方式與用餐環境上，
+                    他的核心概念是：在食材、菜單設計、營運方式與用餐環境上，
                     盡量兼顧健康、環保與永續。
-                </p>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1250,14 +1148,14 @@ def render_intro_page(df):
     with col2:
         st.markdown(
             """
-            <div class="intro-info-card intro-force-dark-text">
-                <div style="font-size:2rem;">💧⚡</div>
-                <h4>重點在日常營運細節</h4>
-                <p>
+            <div class="feature-card">
+                <div class="feature-icon">💧⚡</div>
+                <div class="feature-title">重點在日常營運細節</div>
+                <div class="feature-text">
                     一家餐廳是否夠「綠」，常會反映在節能、節水、減少浪費、
                     降低一次性用品、重視食材與供應鏈管理等做法。
                     這些細節比一句口號更有說服力。
-                </p>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -1266,20 +1164,19 @@ def render_intro_page(df):
     with col3:
         st.markdown(
             """
-            <div class="intro-info-card intro-force-dark-text">
-                <div style="font-size:2rem;">🌍</div>
-                <h4>和消費者也有關</h4>
-                <p>
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <div class="feature-title">和消費者也有關</div>
+                <div class="feature-text">
                     當餐廳更有效管理食材、能源與廢棄物時，通常也有機會減少資源浪費。
                     對消費者來說，在選餐廳時，除了好不好吃，也能多看一個更有意義的面向。
-                </p>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown('<div class="intro-section-title">這個系統怎麼操作？</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section-title">這個系統怎麼操作？</div>', unsafe_allow_html=True)
     f1, f2, f3, f4 = st.columns(4)
     flows = [
         ("STEP 1", "設定偏好", "依照自己在意的面向，調整不同構面的權重。"),
@@ -1291,33 +1188,17 @@ def render_intro_page(df):
         with col:
             st.markdown(
                 f"""
-                <div class="intro-step-card intro-force-dark-text">
-                    <div class="intro-step-label">{step}</div>
-                    <h5>{title}</h5>
-                    <p>{text_value}</p>
+                <div class="flow-card">
+                    <div class="flow-step">{step}</div>
+                    <div class="flow-title">{title}</div>
+                    <div class="flow-text">{text_value}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-    st.markdown(
-        f"""
-        <div class="intro-dataset-box intro-force-dark-text">
-            <p>本研究參考環境部的環保餐廳環境即時通地圖資料，目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="intro-footer-note intro-force-dark-text">
-            資料來源：環境部資料開放平臺－環保餐廳環境即時通地圖。問卷資料將以匿名方式儲存，
-            不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.info(f"本研究參考環境部的環保餐廳環境即時通地圖資料，目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。")
+    st.caption("資料來源：環境部資料開放平臺－環保餐廳環境即時通地圖。問卷資料將以匿名方式儲存，不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。")
 
     if st.button("開始使用推薦系統", use_container_width=True, type="primary"):
         go_to_page("recommend")
@@ -1816,4 +1697,5 @@ elif st.session_state["page"] == "survey":
 # =========================
 elif st.session_state["page"] == "thank_you":
     render_thank_you_page()
+
 
