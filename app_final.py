@@ -1486,7 +1486,7 @@ elif st.session_state["page"] == "recommend":
     st.markdown(
         """
         <div class="operation-tip-card">
-            <div class="operation-tip-title">建議操作順序（第一次使用者可照這個步驟進行）</div>
+            <div class="operation-tip-title">建議操作順序（您可以依照這個步驟進行操作）</div>
             <ol class="operation-tip-list">
                 <li><strong>先調整左側偏好權重</strong>：依照你在意的面向，調整食物、服務、氣氛、價格、綠色與地理位置的重要程度。</li>
                 <li><strong>再按「取得我的位置」</strong>：如果你希望系統把距離也納入考量，請先允許瀏覽器使用定位。</li>
