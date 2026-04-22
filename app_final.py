@@ -776,22 +776,28 @@ def inject_global_styles():
             margin-bottom: 14px;
             color: #1e293b !important;
         }
-        .survey-card strong,
-        .survey-card span,
-        .survey-card p,
-        .survey-card div {
+        .survey-card,
+        .survey-card * {
             color: #1e293b !important;
         }
         .survey-section-title {
             font-size: 1.2rem;
             font-weight: 800;
-            color: #1e293b;
+            color: inherit !important;
             margin-top: 1rem;
             margin-bottom: 0.5rem;
         }
         .survey-hint {
-            color: #64748b;
+            color: inherit !important;
+            opacity: 0.85;
             font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .likert-hint {
+            color: inherit !important;
+            opacity: 0.8;
+            font-size: 0.92rem;
+            margin-top: -0.2rem;
             margin-bottom: 1rem;
         }
         .operation-tip-card {
@@ -914,28 +920,51 @@ def inject_global_styles():
             margin-bottom: 0.75rem;
             color: #1e293b !important;
         }
-        .mini-metric-card strong,
-        .mini-metric-card p,
-        .mini-metric-card span,
-        .mini-metric-card div {
+        .mini-metric-card,
+        .mini-metric-card * {
             color: #1e293b !important;
         }
-        div[data-testid="stForm"] .stRadio p,
-        div[data-testid="stForm"] .stCheckbox p,
-        div[data-testid="stForm"] .stSelectbox label,
-        div[data-testid="stForm"] .stTextArea label,
-        div[data-testid="stForm"] .stTextArea p,
-        div[data-testid="stForm"] .stSelectbox p,
+
+        /* === 問卷頁：深色主題下的表單文字可讀性 === */
+        div[data-testid="stForm"] label,
+        div[data-testid="stForm"] p,
+        div[data-testid="stForm"] span,
         div[data-testid="stForm"] .stMarkdown p,
-        div[data-testid="stForm"] .stMarkdown span,
-        div[data-testid="stForm"] .stMarkdown div {
+        div[data-testid="stForm"] .stMarkdown li,
+        div[data-testid="stForm"] .stMarkdown strong,
+        div[data-testid="stForm"] .stCheckbox label,
+        div[data-testid="stForm"] .stCheckbox label p,
+        div[data-testid="stForm"] .stRadio label,
+        div[data-testid="stForm"] .stRadio label p,
+        div[data-testid="stForm"] div[role="radiogroup"] label,
+        div[data-testid="stForm"] div[role="radiogroup"] label p,
+        div[data-testid="stForm"] div[role="radiogroup"] label span {
+            color: inherit !important;
+        }
+
+        div[data-testid="stForm"] [data-testid="stMarkdownContainer"] p,
+        div[data-testid="stForm"] [data-testid="stMarkdownContainer"] li,
+        div[data-testid="stForm"] [data-testid="stMarkdownContainer"] strong {
+            color: inherit !important;
+        }
+
+        div[data-testid="stForm"] [data-testid="stCaptionContainer"] p {
+            color: inherit !important;
+            opacity: 0.8;
+        }
+
+        /* 白底輸入框 / 下拉選單內文字維持深色 */
+        div[data-testid="stForm"] [data-baseweb="select"] > div,
+        div[data-testid="stForm"] [data-baseweb="select"] * {
+            background: #ffffff !important;
             color: #1e293b !important;
         }
-        div[data-testid="stForm"] [data-baseweb="select"] > div,
+
         div[data-testid="stForm"] textarea {
             background: #ffffff !important;
             color: #1e293b !important;
         }
+
         div[data-testid="stForm"] textarea::placeholder {
             color: #94a3b8 !important;
         }
@@ -1189,7 +1218,7 @@ def render_question_block(section_title, questions, key_prefix):
     st.markdown(f'<div class="survey-section-title">{section_title}</div>', unsafe_allow_html=True)
     for qid, qtext in questions:
         st.markdown(f'<div class="survey-card"><strong>{qid}</strong>　{qtext}</div>', unsafe_allow_html=True)
-        answer = st.radio(
+        st.radio(
             label="",
             options=[1, 2, 3, 4, 5],
             index=None,
@@ -1197,12 +1226,15 @@ def render_question_block(section_title, questions, key_prefix):
             key=f"{key_prefix}_{qid}",
             label_visibility="collapsed",
         )
-        st.caption("1 = 非常不同意　2 = 不同意　3 = 普通　4 = 同意　5 = 非常同意")
+        st.markdown(
+            '<div class="likert-hint">1 = 非常不同意　2 = 不同意　3 = 普通　4 = 同意　5 = 非常同意</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_demographic_block():
     st.markdown('<div class="survey-section-title">基本資料</div>', unsafe_allow_html=True)
-    st.caption("以下資料僅供匿名統計分析使用。")
+    st.markdown('<div class="survey-hint">以下資料僅供匿名統計分析使用。</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -1259,7 +1291,7 @@ def render_survey_page():
     )
 
     st.markdown('<div class="survey-section-title">A. 本次 Top 10 推薦餐廳清單</div>', unsafe_allow_html=True)
-    st.caption("你可以點擊表格中的 Google 地圖連結，前往 Google 地圖搜尋頁面查看該餐廳資訊。")
+    st.markdown('<div class="survey-hint">你可以點擊表格中的 Google 地圖連結，前往 Google 地圖搜尋頁面查看該餐廳資訊。</div>', unsafe_allow_html=True)
     render_snapshot_top10_table(snapshot)
 
     st.markdown('<div class="survey-section-title">B. Top 10 推薦結果的分析評估</div>', unsafe_allow_html=True)
@@ -1488,8 +1520,8 @@ elif st.session_state["page"] == "recommend":
         <div class="operation-tip-card">
             <div class="operation-tip-title">建議操作順序（您可以依照這個步驟進行操作）</div>
             <ol class="operation-tip-list">
-                <li><strong>先調整左側偏好權重</strong>：依照你在意的面向，調整食物、服務、氣氛、價格、綠色與地理位置的重要程度。</li>
-                <li><strong>再按「取得我的位置」</strong>：如果你希望系統把距離也納入考量，請先允許瀏覽器使用定位。</li>
+                <li><strong>先調整左側偏好權重</strong>：依照你在意的面向，調整不同偏好權重的重要程度。</li>
+                <li><strong>再按「取得我的位置」</strong>：請先允許瀏覽器使用定位，以方便讓系統讀取你的位置進行推薦。</li>
                 <li><strong>往下查看 Top 10 推薦結果</strong>：你可以直接比較餐廳名稱、地址、評分，以及 Google 地圖連結。</li>
                 <li><strong>體驗完成後再填寫問卷</strong>：如果你想測試不同偏好，也可以先重新調整拉桿，再觀察推薦結果變化。</li>
             </ol>
