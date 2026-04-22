@@ -1428,7 +1428,7 @@ elif st.session_state["page"] == "recommend":
     st.title("綠色餐廳推薦系統")
     st.write("請依照你的偏好調整各構面權重，系統將提供推薦結果。")
     st.info(f"目前測試版本：系統 {system_mode}")
-    st.warning("手機版操作提醒：若你沒有看到左側的偏好拉桿，請先點左上角的小箭頭展開設定面板；系統目前已預設展開側欄。")
+    st.warning("手機版操作提醒：若你沒有看到左側的偏好拉桿，請先點左上角的小箭頭展開設定面板。")
 
     col_top_1, col_top_2 = st.columns([1, 1])
 
