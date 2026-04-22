@@ -1467,10 +1467,16 @@ def render_survey_page():
             st.warning("請先勾選同意聲明後再提交。")
         else:
             empirical_evaluation = build_empirical_evaluation(snapshot)
-            response_uuid = save_questionnaire_response(snapshot, answers, demographics, feedback_text, empirical_evaluation)
-            st.session_state["last_response_uuid"] = response_uuid
-            st.session_state["empirical_summary"] = empirical_evaluation.get("summary", {})
-            go_to_page("thank_you")
+            try:
+                response_uuid = save_questionnaire_response(
+                    snapshot, answers, demographics, feedback_text, empirical_evaluation
+                )
+                st.session_state["last_response_uuid"] = response_uuid
+                st.session_state["empirical_summary"] = empirical_evaluation.get("summary", {})
+                go_to_page("thank_you")
+            except Exception as e:
+                st.error("問卷提交失敗，可能是資料庫連線暫時異常。請稍後重新提交，或截圖通知研究者。")
+                st.exception(e)
 
     col_left, col_right = st.columns(2)
     with col_left:
