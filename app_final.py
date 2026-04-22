@@ -754,9 +754,9 @@ def inject_global_styles():
         .section-title {
             font-size: 1.45rem;
             font-weight: 800;
-            color: #dbeafe !important;
-            margin-top: 0.6rem;
-            margin-bottom: 0.6rem;
+            color: #1d4ed8 !important;
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
         }
         /* 首頁深色主題下，強制維持首頁卡片內文字體可讀性 */
         .hero-card,
@@ -1197,8 +1197,40 @@ def render_intro_page(df):
                 unsafe_allow_html=True,
             )
 
-    st.info(f"本研究參考環境部的環保餐廳環境即時通地圖資料，目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。")
-    st.caption("資料來源：環境部資料開放平臺－環保餐廳環境即時通地圖。問卷資料將以匿名方式儲存，不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。")
+    st.markdown('<div style="height: 0.9rem;"></div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div style="
+            background: #dcecff;
+            border: 1px solid #bdd6f7;
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            margin-top: 0.2rem;
+            margin-bottom: 0.75rem;
+            color: #184a7a;
+            font-weight: 700;
+        ">
+            本研究參考環境部的環保餐廳環境即時通地圖資料，目前系統資料庫中共可讀取 {len(df)} 家餐廳資料。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        <div style="
+            color: #6b7280;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            margin-top: 0.2rem;
+            margin-bottom: 1rem;
+        ">
+            資料來源：環境部資料開放平臺－環保餐廳環境即時通地圖。問卷資料將以匿名方式儲存，不會要求填寫姓名；系統主要記錄推薦版本、操作設定與作答結果。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if st.button("開始使用推薦系統", use_container_width=True, type="primary"):
         go_to_page("recommend")
