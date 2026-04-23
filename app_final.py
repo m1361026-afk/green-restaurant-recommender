@@ -216,18 +216,19 @@ def go_to_page(page_name):
 
 def choose_balanced_mode(conn):
     counts = {mode: 0 for mode in ASSIGNMENT_MODES}
+
     rows = conn.execute(
         text(
             """
-            SELECT assigned_mode, COUNT(*) AS cnt
-            FROM experiment_participant_assignments
-            GROUP BY assigned_mode
+            SELECT system_mode, COUNT(*) AS cnt
+            FROM experiment_questionnaire_responses
+            GROUP BY system_mode
             """
         )
     ).mappings().all()
 
     for row in rows:
-        mode = str(row["assigned_mode"]).upper()
+        mode = str(row["system_mode"]).upper()
         if mode in counts:
             counts[mode] = int(row["cnt"])
 
